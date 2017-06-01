@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>Alignment</title>
+  <script type="text/javascript">
+    var ctx, Width, Height, size = 30;
+    function clearCanvas() {
+      ctx.clearRect(0, 0, Width, Height);
+    }
+    function draw2dArray(array) {
+      ctx.fillStyle = "#000000";
+      ctx.strokeStyle = "#000000";
+      let fontsize = size - 15;
+      let wmargin = size / 2, hmargin = (size - fontsize) / 2;
+      for (let i = 0; i < array.length; i++) {
+        for (let j = 0; j < array[i].length; j++) {
+          ctx.lineWidth = 1;
+          ctx.strokeRect(size*j, size*i, size, size);
+
+          ctx.font = fontsize + 'px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          if (array[i][j] === -Infinity)
+            ctx.fillText("-∞", size*j + wmargin, size*i + hmargin);
+          else
+            ctx.fillText(array[i][j], size*j + wmargin, size*i + hmargin);
+        }
+      }
+    }
+    function createInitArray(v, w, initValue) {
+      v = '$' + v;w = '$' + w;
+      let array = new Array(v.length + 1);
+      for (let i = 0; i < v.length + 1; i++) {
+        array[i] = new Array(w.length + 1).fill(initValue);
+      }
+      array[0][0] = '';
+      for (let i = 1; i < v.length + 1; i++) {
+        array[i][0] = v.charAt(i-1);
+      }
+      for (let i = 1; i < w.length + 1; i++) {
+        array[0][i] = w.charAt(i-1);
+      }
+      return array;
+    }
+    function initAlignment(v, w) {
+      let array = createInitArray(v, w, -Infinity);
+      array[1][1] = 0;
+      return array;
+    }
+    function stepAlignment(isLocal = false) {
+      return function(i,j,s) {
+        let penalty = -1, match = 1, mismatch = -1;
+        if (i > 1) s[i][j] = Math.max(s[i][j], s[i-1][j] + penalty);
+        if (j > 1) s[i][j] = Math.max(s[i][j], s[i][j-1] + penalty);
+        if (i > 1 && j > 1) {
+          if (s[i][0] === s[0][j])
+            s[i][j] = Math.max(s[i][j], s[i-1][j-1] + match);
+          else
+            s[i][j] = Math.max(s[i][j], s[i-1][j-1] + mismatch);
+        }
+        if (isLocal) s[i][j] = Math.max(s[i][j], 0);
+      }
+    }
+    function drawStepAligment(i, j, s) {
+      ctx.fillStyle = "rgba(0, 0, 200, 0.3)";
+      if (i > 1) ctx.fillRect(size*j, size*(i-1), size, size);
+      if (j > 1) ctx.fillRect(size*(j-1), size*i, size, size);
+      if (i > 1 && j > 1) {
+        ctx.fillRect(size*(j-1), size*(i-1), size, size);
+        if (s[i][0] === s[0][j]) {
+          ctx.fillStyle = "rgba(0, 200, 0, 0.3)";
+          ctx.fillRect(size*j, size*0, size, size);
+          ctx.fillRect(size*0, size*i, size, size);
+        }
+      }
+      ctx.fillStyle = "rgba(200, 0, 0, 0.3)";
+      ctx.fillRect(size*j, size*i, size, size);
+      draw2dArray(s);
+    }
+    function* AlignmentSolver(v, w, stepFunc, sx, sy) {
+      ctx.save();ctx.translate(sx,sy);
+      let array = initAlignment(v, w);
+      ctx.clearRect(0, 0, array[0].length*size, array.length*size);
+      draw2dArray(array);
+      ctx.restore();
+      yield;
+      for (let i = 1; i < array.length; i++) {
+        for (let j = 1; j < array[i].length; j++) {
+          ctx.save();ctx.translate(sx,sy);
+          ctx.clearRect(0, 0, array[0].length*size, array.length*size);
+          stepFunc(i, j, array);
+          drawStepAligment(i, j, array);
+          ctx.restore();
+          yield;
+        }
+      }
+    }
+    function initGapAlignment(v, w) {
+      // 導入 -20, 延長 -1
+      let gRho = -20, gSig = -1;
+      let sv = createInitArray(v, w, -Infinity);
+      let sh = createInitArray(v, w, -Infinity);
+
+      for (let i = 1; i < sv[0].length; i++)
+        sv[1][i] = gRho;
+      for (let i = 1; i < sh.length; i++)
+        sh[i][1] = gRho;
+
+      // let sv = initAlignment(v, w, -Infinity);
+      // let sh = initAlignment(v, w, -Infinity);
+      let s = createInitArray(v, w, -Infinity);
+      // s[1][1] = 0;
+      return [sv,sh,s];
+    }
+    function stepGapAlignment(i, j, arrays) {
+      let sv = arrays[0], sh = arrays[1], s = arrays[2];
+      let gRho = -20, gSig = -1;
+      let match = 1, mismatch = -1;
+      if (i > 1) {
+        sv[i][j] = Math.max(sv[i-1][j]+gSig, s[i-1][j]+gSig+gRho);
+      }
+      if (j > 1) {
+        sh[i][j] = Math.max(sh[i][j-1]+gSig, s[i][j-1]+gSig+gRho);
+      }
+      if (i > 1 && j > 1) {
+        if (s[i][0] == s[0][j])
+          s[i][j] = Math.max(s[i-1][j-1] + match, s[i][j]);
+        else
+          s[i][j] = Math.max(s[i-1][j-1] + mismatch, s[i][j]);
+      }
+      s[i][j] = Math.max(sv[i][j], s[i][j]);
+      s[i][j] = Math.max(sh[i][j], s[i][j]);
+    }
+    function drawStepGapAlignment(i, j, arrays) {
+      let sv = arrays[0], sh = arrays[1], s = arrays[2];   
+      ctx.save();
+      // shについて
+      ctx.fillStyle = "rgba(0, 0, 200, 0.3)";
+      if (j > 1) ctx.fillRect(size*(j-1), size*i, size, size);
+      ctx.fillStyle = "rgba(200, 200, 0, 0.3)";
+      ctx.fillRect(size*j, size*i, size, size);
+      draw2dArray(sh);
+
+      // sについて
+      ctx.translate(s[0].length*(1+size), 0);
+      if (i > 1 && j > 1) {
+        ctx.fillStyle = "rgba(200, 200, 0, 0.3)";
+        ctx.fillRect(size*(j-1), size*(i-1), size, size);
+        if (s[i][0] === s[0][j]) {
+          ctx.fillStyle = "rgba(0, 200, 0, 0.3)";
+          ctx.fillRect(size*j, size*0, size, size);
+          ctx.fillRect(size*0, size*i, size, size);
+        }
+      }
+      ctx.fillStyle = "rgba(200, 0, 0, 0.3)";
+      ctx.fillRect(size*j, size*i, size, size);
+      draw2dArray(s);
+
+      // svについて
+      ctx.translate(sh[0].length*(1+size), 0);
+      ctx.fillStyle = "rgba(0, 0, 200, 0.3)";
+      if (i > 1) ctx.fillRect(size*j, size*(i-1), size, size);
+      ctx.fillStyle = "rgba(200, 200, 0, 0.3)";
+      ctx.fillRect(size*j, size*i, size, size);
+      draw2dArray(sv);
+      ctx.restore();
+    }
+    function* GapAlignmentSolver(v, w, sx, sy) {
+      ctx.clearRect(0, 0, Width, Height);
+      ctx.save();ctx.translate(sx,sy);
+      let arrays = initGapAlignment(v, w);
+      let array = arrays[0];
+      drawStepGapAlignment(1, 1, arrays);
+      ctx.restore();
+      yield;
+      for (let i = 1; i < array.length; i++) {
+        for (let j = 1; j < array[i].length; j++) {
+          ctx.clearRect(0, 0, Width, Height);
+          ctx.save();ctx.translate(sx,sy);
+          stepGapAlignment(i, j, arrays);
+          drawStepGapAlignment(i, j, arrays);
+          ctx.restore();
+          yield;
+        }
+      }
+    }
+    function init(){
+      let canvas = document.getElementById('canvas');
+      if (canvas.getContext) {
+        ctx = canvas.getContext('2d');
+      }
+      else ctx = null;
+    }
+
+    var alignment;
+    function initCanvas() {
+      clearCanvas();
+      let v = forms.textv.value;
+      let w = forms.textw.value;
+      let algo = forms.algo.value;
+
+      let canvas = document.getElementById('canvas');
+      Width = canvas.width = (2+w.length)*size + 20;
+      Height = canvas.height = (2+v.length)*size + 20;
+
+      if (algo === "Global")
+        alignment = AlignmentSolver(v, w, stepAlignment(false), 10, 10);
+      else if (algo === "Local")
+        alignment = AlignmentSolver(v, w, stepAlignment(true), 10, 10);
+      else if (algo == "Gap"){
+        alignment = GapAlignmentSolver(v, w, 10, 10);
+        Width = canvas.width = ((2+w.length)*size) * 3 + 35;
+      Height = canvas.height = (2+v.length)*size + 20;
+      }
+
+      alignment.next();
+      // drawStepGapAlignment(2, 2, initGapAlignment(v,w));
+    }
+    function oneStep() {
+      alignment.next();
+    }
+    var id, isAuto = false;
+    function auto() {
+      if (isAuto) return;
+      let alignnext = function () {
+        alignment.next();
+      };
+      let tempo = forms.tempo.value;
+      id = setInterval(alignnext, tempo*20);
+      isAuto = true;
+    }
+    function stop() {
+      if (!isAuto) return;
+      clearInterval(id);
+      isAuto = false;
+    }
+  </script>
+  <style>
+    canvas {border: 1px solid black;}
+  </style>
+</head>
+<body onload="init();">
+<h1>Alignment</h1>
+<form name="forms">
+<table border="0">
+<tr><td>
+  <input type="text" name="textv" value="ATCTGAT"><input type="text" name="textw" value="TGCATA">
+</td></tr>
+<tr><td>
+  <input type="radio" name="algo" value="Global" checked="checked">Global Alignment
+</tr>
+<tr><td>
+  <input type="radio" name="algo" value="Local">Local Alignment
+</td>
+<td>
+  rapid<input type="range" name="tempo">slow
+</td></tr>
+<tr><td>
+  <input type="radio" name="algo" value="Gap">Gap
+</td><td>
+  <input type="button" value="init" onclick="initCanvas();">
+  <input type="button" value="step" onclick="oneStep();">
+  <input type="button" value="auto" onclick="auto();">
+  <input type="button" value="stop" onclick="stop();">
+</td></tr>
+</table><br>
+</form>
+<canvas id="canvas" width="0" height="0">
+  お使いのブラウザではcanvasが表示できません。
+</canvas>
+</body>
+</html>
