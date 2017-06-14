@@ -49,7 +49,7 @@
       return array;
     }
     function stepAlignment(isLocal = false) {
-      return function(i,j,s) {
+      return function(i,j,s,b) {
         let penalty = -1, match = 1, mismatch = -1;
         if (i > 1) s[i][j] = Math.max(s[i][j], s[i-1][j] + penalty);
         if (j > 1) s[i][j] = Math.max(s[i][j], s[i][j-1] + penalty);
@@ -60,9 +60,38 @@
             s[i][j] = Math.max(s[i][j], s[i-1][j-1] + mismatch);
         }
         if (isLocal) s[i][j] = Math.max(s[i][j], 0);
+        // バックトラックの生成
+        if (i > 1 && s[i][j] == s[i-1][j] + penalty)
+          b[i][j] |= 1;
+        if (j > 1 && s[i][j] == s[i][j-1] + penalty)
+          b[i][j] |= (1<<1);
+        if (i > 1 && j > 1 ){
+          if (s[i][0] == s[0][j] && s[i][j] == s[i-1][j-1] + match)
+            b[i][j] |= (1<<2);
+          if (s[i][0] != s[0][j] && s[i][j] == s[i-1][j-1] + mismatch)
+            b[i][j] |= (1<<2);
+        }
       }
     }
-    function drawStepAligment(i, j, s) {
+    function line(x1, y1, x2, y2) {
+      ctx.beginPath();
+      ctx.moveTo(x1*size+size/2, y1*size+size/2);
+      ctx.lineTo(x2*size+size/2, y2*size+size/2);
+      ctx.closePath();
+      ctx.stroke();
+    }
+    function drawBackTrack(b) {
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.3)";
+      for (let i = 1; i < b.length; i++) {
+        for (let j = 1; j < b[i].length; j++) {
+          if ((b[i][j] >> 0) & 1) line(j, i, j, i-1);
+          if ((b[i][j] >> 1) & 1) line(j, i, j-1, i);
+          if ((b[i][j] >> 2) & 1) line(j, i, j-1, i-1);
+        }
+      }
+    }
+    var isShowBackTrack = true;
+    function drawStepAligment(i, j, s, b) {
       ctx.fillStyle = "rgba(0, 0, 200, 0.3)";
       if (i > 1) ctx.fillRect(size*j, size*(i-1), size, size);
       if (j > 1) ctx.fillRect(size*(j-1), size*i, size, size);
@@ -77,10 +106,15 @@
       ctx.fillStyle = "rgba(200, 0, 0, 0.3)";
       ctx.fillRect(size*j, size*i, size, size);
       draw2dArray(s);
+      if (isShowBackTrack) drawBackTrack(b);
     }
     function* AlignmentSolver(v, w, stepFunc, sx, sy) {
       ctx.save();ctx.translate(sx,sy);
       let array = initAlignment(v, w);
+      let b = new Array(v.length + 2);
+      for (let i = 0; i < v.length + 2; i++) {
+        b[i] = new Array(w.length + 1).fill(0);
+      }
       ctx.clearRect(0, 0, array[0].length*size, array.length*size);
       draw2dArray(array);
       ctx.restore();
@@ -89,8 +123,8 @@
         for (let j = 1; j < array[i].length; j++) {
           ctx.save();ctx.translate(sx,sy);
           ctx.clearRect(0, 0, array[0].length*size, array.length*size);
-          stepFunc(i, j, array);
-          drawStepAligment(i, j, array);
+          stepFunc(i, j, array, b);
+          drawStepAligment(i, j, array, b);
           ctx.restore();
           yield;
         }
@@ -199,6 +233,7 @@
       let v = forms.textv.value;
       let w = forms.textw.value;
       let algo = forms.algo.value;
+      isShowBackTrack = forms.back.checked;
 
       let canvas = document.getElementById('canvas');
       Width = canvas.width = (2+w.length)*size + 20;
@@ -241,7 +276,7 @@
   </style>
 </head>
 <body onload="init();">
-<h1>Alignment</h1>
+<h1>Alignment Algorithm</h1>
 <form name="forms">
 <table border="0">
 <tr><td>
@@ -263,6 +298,7 @@
   <input type="button" value="step" onclick="oneStep();">
   <input type="button" value="auto" onclick="auto();">
   <input type="button" value="stop" onclick="stop();">
+  <input type="checkbox" id="back" checked>backtrack
 </td></tr>
 </table><br>
 </form>
