@@ -90,6 +90,52 @@
         }
       }
     }
+    var isLocal = true;
+    function backtrack(b) {
+      let i = b.length - 1;
+      let j = b[0].length - 1;
+      ctx.strokeStyle = "rgba(0, 0, 255, 0.8)";
+      while (i != 1 || j != 1) {
+        if (b[i][j] & (1<<0)) {
+          line(j, i, j, i-1);
+          i--;
+        } else if (b[i][j] & (1<<1)) {
+          line(j, i, j-1, i);
+          j--;
+        } else if (b[i][j] & (1<<2)) {
+          line(j, i, j-1, i-1);
+          i--;j--;
+        }else break;
+      }
+    }
+    function backtrakclocal(b, s) {
+      let maxvalue = -10000000;
+      let si = b.length - 1;
+      let sj = b[0].length - 1;
+      for (let y = 1; y < b.length; y++) {
+        for (let x = 1; x < b.length; x++) {
+          if (maxvalue < s[y][x]) {
+            maxvalue = s[y][x];
+            si = y;
+            sj = x;
+          }
+        }
+      }
+      let i = si, j = sj;
+      ctx.strokeStyle = "rgba(0, 0, 255, 0.8)"
+      while (i != 1 || j != 1) {
+        if (b[i][j] & (1<<0)) {
+          line(j, i, j, i-1);
+          i--;
+        } else if (b[i][j] & (1<<1)) {
+          line(j, i, j-1, i);
+          j--;
+        } else if (b[i][j] & (1<<2)) {
+          line(j, i, j-1, i-1);
+          i--;j--;
+        } else break;
+      }
+    }
     var isShowBackTrack = true;
     function drawStepAligment(i, j, s, b) {
       ctx.fillStyle = "rgba(0, 0, 200, 0.3)";
@@ -113,7 +159,7 @@
       let array = initAlignment(v, w);
       let b = new Array(v.length + 2);
       for (let i = 0; i < v.length + 2; i++) {
-        b[i] = new Array(w.length + 1).fill(0);
+        b[i] = new Array(w.length + 2).fill(0);
       }
       ctx.clearRect(0, 0, array[0].length*size, array.length*size);
       draw2dArray(array);
@@ -129,27 +175,25 @@
           yield;
         }
       }
+      ctx.save();ctx.translate(sx,sy);
+        if(isLocal) backtrakclocal(b, array);
+        else backtrack(b);
+      ctx.restore();
     }
+    var gRho = -20, gSig = -1;
     function initGapAlignment(v, w) {
       // 導入 -20, 延長 -1
-      let gRho = -20, gSig = -1;
       let sv = createInitArray(v, w, -Infinity);
       let sh = createInitArray(v, w, -Infinity);
-
-      for (let i = 1; i < sv[0].length; i++)
-        sv[1][i] = gRho;
-      for (let i = 1; i < sh.length; i++)
-        sh[i][1] = gRho;
-
-      // let sv = initAlignment(v, w, -Infinity);
-      // let sh = initAlignment(v, w, -Infinity);
       let s = createInitArray(v, w, -Infinity);
-      // s[1][1] = 0;
+      
+      sv[1][1] = gRho;
+      sh[1][1] = gRho;
+      s[1][1] = 0;
       return [sv,sh,s];
     }
     function stepGapAlignment(i, j, arrays) {
       let sv = arrays[0], sh = arrays[1], s = arrays[2];
-      let gRho = -20, gSig = -1;
       let match = 1, mismatch = -1;
       if (i > 1) {
         sv[i][j] = Math.max(sv[i-1][j]+gSig, s[i-1][j]+gSig+gRho);
@@ -234,7 +278,7 @@
       let w = forms.textw.value;
       let algo = forms.algo.value;
       isShowBackTrack = forms.back.checked;
-
+      isLocal = (algo == "Local");
       let canvas = document.getElementById('canvas');
       Width = canvas.width = (2+w.length)*size + 20;
       Height = canvas.height = (2+v.length)*size + 20;
@@ -280,7 +324,7 @@
 <form name="forms">
 <table border="0">
 <tr><td>
-  <input type="text" name="textv" value="ATCTGAT"><input type="text" name="textw" value="TGCATA">
+  <input type="text" name="textv" value="TACGGGTAT"><input type="text" name="textw" value="GGACGTACG">
 </td></tr>
 <tr><td>
   <input type="radio" name="algo" value="Global" checked="checked">Global Alignment
