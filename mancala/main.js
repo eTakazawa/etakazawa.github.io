@@ -42,11 +42,15 @@ class Tokens {
     update(numString) {
         let nums = numString.split(',');
         let sumNum = 0;
+        console.log(numString);
+        console.log(nums);
         for (let i = 0; i < nums.length; i++) {
             this.tokens[i].num = parseInt(nums[i], 10);
             sumNum += this.tokens[i].num;
         }
-        if (sumNum != 18 || nums.length != 8) alert('error');
+        if (sumNum != 18 || nums.length != 8) {
+            alert('Sorry Server Error!');
+        }
     };
     move(pos) {
         if (!(pos >= 0 && pos <= 2) || this.tokens[pos].num == 0) {
@@ -117,6 +121,7 @@ setInterval(draw, 10);
 setInterval(judge, 10);
 
 var reqAjax = function(query) {
+    console.log(query);
     $.ajax({
         url: 'https://pj5k8nk5ma.execute-api.us-east-1.amazonaws.com/default/test?state=' + query,
         type: 'POST',
@@ -143,9 +148,13 @@ var moveMid = function() {
 var moveRight = function() {
     if (tokens.move(2)) reqAjax(tokens.getStr() + ",1");
 };
+var reset = function() {
+    tokens.reset();
+}
 
 $(function() {
     $('#button-left').click(moveLeft);
     $('#button-mid').click(moveMid);
     $('#button-right').click(moveRight);
+    $('#button-reset').click(reset);
 });
