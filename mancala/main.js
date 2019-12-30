@@ -125,7 +125,7 @@ var reqAjax = function(query) {
     }).done(function(data) {
         tokens.update(data);
         alert("Enemy turn end");
-        alert(data);
+        // alert(data);
         // $('#done').html("enemy turn end");
     }).fail(function(data) {
         // $('#error').html("失敗");
