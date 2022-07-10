@@ -1,0 +1,3 @@
+[submodule "airhockey"]
+	path = airhockey
+	url = https://github.com/eTakazawa/airhockey
